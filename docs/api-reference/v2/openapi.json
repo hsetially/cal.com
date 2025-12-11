@@ -14452,7 +14452,7 @@
       },
       "get": {
         "operationId": "TeamsEventTypesController_getTeamEventTypes",
-        "summary": "Get a team event type",
+        "summary": "Get team event types",
         "description": "Use the optional `sortCreatedAt` query parameter to order results by creation date (by ID). Accepts \"asc\" (oldest first) or \"desc\" (newest first). When not provided, no explicit ordering is applied.",
         "parameters": [
           {
@@ -29465,6 +29465,10 @@
             "example": "success",
             "enum": ["success", "error"]
           },
+          "message": {
+            "type": "string",
+            "example": "This endpoint will require authentication in a future release."
+          },
           "error": {
             "type": "object"
           },
@@ -29491,6 +29495,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "message": {
+            "type": "string",
+            "example": "This endpoint will require authentication in a future release."
           },
           "error": {
             "type": "object"
