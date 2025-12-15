@@ -1,5 +1,6 @@
 import type { JsonValue } from "@calcom/types/Json";
 import type { AuditActorType } from "./IAuditActorRepository";
+import type { ActionSource } from "../common/actionSource";
 
 export type BookingAuditType = "RECORD_CREATED" | "RECORD_UPDATED" | "RECORD_DELETED"
 
@@ -10,7 +11,7 @@ export type BookingAuditType = "RECORD_CREATED" | "RECORD_UPDATED" | "RECORD_DEL
  * They are reserved in the enum for potential future use but should not appear in audit logs.
  * Use the CREATED action to capture initial booking status instead.
  */
-export type BookingAuditAction = "CREATED" | "CANCELLED" | "ACCEPTED" | "REJECTED" | "PENDING" | "AWAITING_HOST" | "RESCHEDULED" | "ATTENDEE_ADDED" | "ATTENDEE_REMOVED" | "REASSIGNMENT" | "LOCATION_CHANGED" | "HOST_NO_SHOW_UPDATED" | "ATTENDEE_NO_SHOW_UPDATED" | "RESCHEDULE_REQUESTED"
+export type BookingAuditAction = "CREATED" | "CANCELLED" | "ACCEPTED" | "REJECTED" | "PENDING" | "AWAITING_HOST" | "RESCHEDULED" | "ATTENDEE_ADDED" | "ATTENDEE_REMOVED" | "REASSIGNMENT" | "LOCATION_CHANGED" | "HOST_NO_SHOW_UPDATED" | "ATTENDEE_NO_SHOW_UPDATED" | "RESCHEDULE_REQUESTED" | "SEAT_BOOKED" | "SEAT_RESCHEDULED"
 export type BookingAuditCreateInput = {
     bookingUid: string;
     actorId: string;
@@ -18,6 +19,7 @@ export type BookingAuditCreateInput = {
     data: JsonValue;
     type: BookingAuditType;
     timestamp: Date;
+    source: ActionSource;
 }
 
 type BookingAudit = {
@@ -30,6 +32,7 @@ type BookingAudit = {
     createdAt: Date;
     updatedAt: Date;
     data: JsonValue;
+    source: ActionSource;
 }
 
 export type BookingAuditWithActor = BookingAudit & {

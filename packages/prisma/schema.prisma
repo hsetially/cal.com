@@ -182,7 +182,6 @@ model EventType {
   canSendCalVideoTranscriptionEmails Boolean                @default(true)
 
   autoTranslateDescriptionEnabled          Boolean                   @default(false)
-  autoTranslateInstantMeetingTitleEnabled  Boolean                   @default(true)
   /// @zod.import(["import { recurringEventType } from '../../zod-utils'"]).custom.use(recurringEventType)
   recurringEvent                           Json?
   disableGuests                            Boolean                   @default(false)
@@ -197,8 +196,6 @@ model EventType {
   showOptimizedSlots                       Boolean?                  @default(false)
   disableCancelling                        Boolean?                  @default(false)
   disableRescheduling                      Boolean?                  @default(false)
-  /// @zod.number.min(0)
-  minimumRescheduleNotice                  Int?
   seatsShowAttendees                       Boolean?                  @default(false)
   seatsShowAvailabilityCount               Boolean?                  @default(true)
   schedulingType                           SchedulingType?
@@ -258,7 +255,6 @@ model EventType {
   hostGroups            HostGroup[]
 
   bookingRequiresAuthentication Boolean @default(false)
-  rrHostSubsetEnabled           Boolean @default(false)
 
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt
@@ -896,7 +892,6 @@ model Booking {
   @@index([uid])
   @@index([status])
   @@index([startTime, endTime, status])
-  @@index([fromReschedule])
 }
 
 model Tracking {
@@ -1939,18 +1934,17 @@ model Avatar {
 }
 
 model OutOfOfficeEntry {
-  id              Int                @id @default(autoincrement())
-  uuid            String             @unique
-  start           DateTime
-  end             DateTime
-  notes           String?
-  showNotePublicly Boolean           @default(false)
-  userId          Int
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  toUserId        Int?
-  toUser          User?              @relation(name: "toUser", fields: [toUserId], references: [id], onDelete: Cascade)
-  reasonId        Int?
-  reason          OutOfOfficeReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
+  id       Int                @id @default(autoincrement())
+  uuid     String             @unique
+  start    DateTime
+  end      DateTime
+  notes    String?
+  userId   Int
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toUserId Int?
+  toUser   User?              @relation(name: "toUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  reasonId Int?
+  reason   OutOfOfficeReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2685,6 +2679,18 @@ enum BookingAuditAction {
 
   // Rescheduling
   RESCHEDULE_REQUESTED @map("reschedule_requested")
+
+  // Seat management
+  SEAT_BOOKED      @map("seat_booked")
+  SEAT_RESCHEDULED @map("seat_rescheduled")
+}
+
+enum BookingAuditSource {
+  API_V1  @map("api_v1")
+  API_V2  @map("api_v2")
+  WEBAPP  @map("webapp")
+  WEBHOOK @map("webhook")
+  UNKNOWN @map("unknown")
 }
 
 enum AuditActorType {
@@ -2692,6 +2698,7 @@ enum AuditActorType {
   GUEST    @map("guest") // Non-registered user
   ATTENDEE @map("attendee") // Has Attendee record with us
   SYSTEM   @map("system") // Automated actions
+  APP      @map("app") // App-triggered actions (payment webhooks, integrations)
 }
 
 model AuditActor {
@@ -2750,6 +2757,9 @@ model BookingAudit {
   // Database record timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Source of the action (API_V2 or WEBAPP)
+  source BookingAuditSource
 
   data Json?
 

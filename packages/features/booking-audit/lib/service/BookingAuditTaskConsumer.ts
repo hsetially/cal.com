@@ -4,12 +4,13 @@ import logger from "@calcom/lib/logger";
 import type { IFeaturesRepository } from "@calcom/features/flags/features.repository.interface";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 
-import type { Actor } from "../../../bookings/lib/types/actor";
-import type { BookingAuditTaskBasePayload } from "../types/bookingAuditTask";
-import { BookingAuditTaskBaseSchema } from "../types/bookingAuditTask";
-import { BookingAuditActionServiceRegistry, type AuditActionData } from "./BookingAuditActionServiceRegistry";
+import type { PIIFreeActor } from "../../../bookings/lib/types/actor";
+import type { BookingAuditTaskConsumerPayload } from "../types/bookingAuditTask";
+import { BookingAuditTaskConsumerSchema } from "../types/bookingAuditTask";
+import { BookingAuditActionServiceRegistry } from "./BookingAuditActionServiceRegistry";
 import type { IBookingAuditRepository, BookingAuditType, BookingAuditAction } from "../repository/IBookingAuditRepository";
 import type { IAuditActorRepository } from "../repository/IAuditActorRepository";
+import type { ActionSource } from "../common/actionSource";
 import { safeStringify } from "@calcom/lib/safeStringify";
 
 interface BookingAuditTaskConsumerDeps {
@@ -24,6 +25,7 @@ type CreateBookingAuditInput = {
     actorId: string;
     type: BookingAuditType;
     action: BookingAuditAction;
+    source: ActionSource;
     data: JsonValue;
     timestamp: Date; // Required: actual time of the booking change (business event)
 };
@@ -93,7 +95,7 @@ export class BookingAuditTaskConsumer {
      */
     async processAuditTask(payload: unknown, taskId: string): Promise<void> {
         // Step 1: Parse with lean base schema (data as unknown)
-        const parseResult = BookingAuditTaskBaseSchema.safeParse(payload);
+        const parseResult = BookingAuditTaskConsumerSchema.safeParse(payload);
 
         if (!parseResult.success) {
             const errorMsg = `Invalid booking audit payload: ${safeStringify(parseResult.error.errors)}`;
@@ -102,7 +104,7 @@ export class BookingAuditTaskConsumer {
         }
 
         const validatedPayload = parseResult.data;
-        const { action, bookingUid, actor, organizationId, data, timestamp } = validatedPayload;
+        const { action, bookingUid, actor, organizationId, data, timestamp, source } = validatedPayload;
 
         // Skip processing for non-organization bookings
         if (organizationId === null) {
@@ -125,7 +127,7 @@ export class BookingAuditTaskConsumer {
         const dataInLatestFormat = await this.migrateIfNeeded({ action, data, payload: validatedPayload, taskId });
 
         // dataInLatestFormat is validated by action-specific schema in migrateIfNeeded
-        await this.onBookingAction({ bookingUid, actor, action, data: dataInLatestFormat as AuditActionData, timestamp });
+        await this.onBookingAction({ bookingUid, actor, action, source, data: dataInLatestFormat, timestamp });
     }
 
     /**
@@ -142,7 +144,7 @@ export class BookingAuditTaskConsumer {
     private async migrateIfNeeded(params: {
         action: BookingAuditAction;
         data: unknown;
-        payload: BookingAuditTaskBasePayload;
+        payload: BookingAuditTaskConsumerPayload;
         taskId: string;
     }) {
         const { action, data, payload, taskId } = params;
@@ -173,7 +175,7 @@ export class BookingAuditTaskConsumer {
      * @param taskId - Task ID (required for DB update)
      */
     private async updateTaskPayload(
-        payload: BookingAuditTaskBasePayload,
+        payload: BookingAuditTaskConsumerPayload,
         latestData: unknown,
         taskId: string
     ): Promise<void> {
@@ -199,7 +201,7 @@ export class BookingAuditTaskConsumer {
      * Resolves an Actor to an actor ID in the AuditActor table
      * Handles different actor types appropriately (upsert, lookup, or direct ID)
      */
-    private async resolveActorId(actor: Actor): Promise<string> {
+    private async resolveActorId(actor: PIIFreeActor): Promise<string> {
         switch (actor.identifiedBy) {
             case "id":
                 return actor.id;
@@ -208,19 +210,8 @@ export class BookingAuditTaskConsumer {
                 return userActor.id;
             }
             case "attendee": {
-                const attendeeActor = await this.auditActorRepository.findByAttendeeId(actor.attendeeId);
-                if (!attendeeActor) {
-                    throw new Error(`Attendee actor not found for attendeeId: ${actor.attendeeId}`);
-                }
+                const attendeeActor = await this.auditActorRepository.createIfNotExistsAttendeeActor({ attendeeId: actor.attendeeId });
                 return attendeeActor.id;
-            }
-            case "guest": {
-                const guestActor = await this.auditActorRepository.createIfNotExistsGuestActor(
-                    actor.email ?? null,
-                    actor.name ?? null,
-                    actor.phone ?? null
-                );
-                return guestActor.id;
             }
         }
     }
@@ -235,6 +226,7 @@ export class BookingAuditTaskConsumer {
             actorId: input.actorId,
             type: input.type,
             action: input.action,
+            source: input.source,
             timestamp: input.timestamp,
         }));
 
@@ -243,6 +235,7 @@ export class BookingAuditTaskConsumer {
             actorId: input.actorId,
             type: input.type,
             action: input.action,
+            source: input.source,
             timestamp: input.timestamp,
             data: input.data ?? null,
         });
@@ -262,7 +255,7 @@ export class BookingAuditTaskConsumer {
     private getRecordType(params: { action: BookingAuditAction }): BookingAuditType {
         const { action } = params;
 
-         
+
         switch (action) {
             case "CREATED":
                 return "RECORD_CREATED";
@@ -279,6 +272,8 @@ export class BookingAuditTaskConsumer {
             case "LOCATION_CHANGED":
             case "HOST_NO_SHOW_UPDATED":
             case "ATTENDEE_NO_SHOW_UPDATED":
+            case "SEAT_BOOKED":
+            case "SEAT_RESCHEDULED":
                 return "RECORD_UPDATED";
 
             // PENDING and AWAITING_HOST are not implemented as they represent initial states
@@ -290,12 +285,13 @@ export class BookingAuditTaskConsumer {
 
     async onBookingAction(params: {
         bookingUid: string;
-        actor: Actor;
+        actor: PIIFreeActor;
         action: BookingAuditAction;
-        data: AuditActionData;
+        source: ActionSource;
+        data: Record<string, unknown>;
         timestamp: number;
     }): Promise<BookingAudit> {
-        const { bookingUid, actor, action, data, timestamp } = params;
+        const { bookingUid, actor, action, source, data, timestamp } = params;
         const actionService = this.actionServiceRegistry.getActionService(action);
         const versionedData = actionService.getVersionedData(data);
         const actorId = await this.resolveActorId(actor);
@@ -306,6 +302,7 @@ export class BookingAuditTaskConsumer {
             actorId,
             type: recordType,
             action,
+            source,
             // versionedData is { version: number; fields: unknown } which is JsonValue-compatible
             data: versionedData as JsonValue,
             timestamp: new Date(timestamp),
