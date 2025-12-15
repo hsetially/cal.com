@@ -567,4 +567,74 @@ export class FeaturesRepository implements IFeaturesRepository {
       throw err;
     }
   }
+
+  /**
+   * Get user's auto opt-in preference for experimental features.
+   * @param userId - The ID of the user
+   * @returns Promise<boolean> - True if user has auto opt-in enabled
+   */
+  async getUserAutoOptIn(userId: number): Promise<boolean> {
+    try {
+      const user = await this.prismaClient.user.findUnique({
+        where: { id: userId },
+        select: { autoOptInExperimentalFeatures: true },
+      });
+      return user?.autoOptInExperimentalFeatures ?? false;
+    } catch (err) {
+      captureException(err);
+      throw err;
+    }
+  }
+
+  /**
+   * Set user's auto opt-in preference for experimental features.
+   * @param userId - The ID of the user
+   * @param autoOptIn - Whether to enable auto opt-in
+   */
+  async setUserAutoOptIn(userId: number, autoOptIn: boolean): Promise<void> {
+    try {
+      await this.prismaClient.user.update({
+        where: { id: userId },
+        data: { autoOptInExperimentalFeatures: autoOptIn },
+      });
+    } catch (err) {
+      captureException(err);
+      throw err;
+    }
+  }
+
+  /**
+   * Get team's auto opt-in preference for experimental features.
+   * @param teamId - The ID of the team
+   * @returns Promise<boolean> - True if team has auto opt-in enabled
+   */
+  async getTeamAutoOptIn(teamId: number): Promise<boolean> {
+    try {
+      const team = await this.prismaClient.team.findUnique({
+        where: { id: teamId },
+        select: { autoOptInExperimentalFeatures: true },
+      });
+      return team?.autoOptInExperimentalFeatures ?? false;
+    } catch (err) {
+      captureException(err);
+      throw err;
+    }
+  }
+
+  /**
+   * Set team's auto opt-in preference for experimental features.
+   * @param teamId - The ID of the team
+   * @param autoOptIn - Whether to enable auto opt-in
+   */
+  async setTeamAutoOptIn(teamId: number, autoOptIn: boolean): Promise<void> {
+    try {
+      await this.prismaClient.team.update({
+        where: { id: teamId },
+        data: { autoOptInExperimentalFeatures: autoOptIn },
+      });
+    } catch (err) {
+      captureException(err);
+      throw err;
+    }
+  }
 }

@@ -4111,6 +4111,21 @@
   "actor": "Actor",
   "timestamp": "Timestamp",
   "json": "JSON",
-  "hubspot_ignore_guests": "Do not create new records for guests added to the booking",
-  "ADD_NEW_STRINGS_ABOVE_THIS_LINE_TO_PREVENT_MERGE_CONFLICTS": "↑↑↑↑↑↑↑↑↑↑↑↑↑ Add your new strings above here ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+    "hubspot_ignore_guests": "Do not create new records for guests added to the booking",
+    "feature_opt_in": "Feature Opt-In",
+    "feature_opt_in_description": "Manage experimental features for your account",
+    "feature_opt_in_team_description": "Manage experimental features for your team",
+    "feature_opt_in_org_description": "Manage experimental features for your organization",
+    "allow": "Allow",
+    "block": "Block",
+    "let_users_decide": "Let users decide",
+    "use_default": "Use default",
+    "on": "On",
+    "off": "Off",
+    "auto_opt_in_experimental": "Automatically opt-in for future experimental features",
+    "auto_opt_in_experimental_description": "When enabled, you will be automatically opted into new experimental features as they become available",
+    "feature_blocked_by_team_warning": "Although you want to opt in to this feature, your team has explicitly disabled it. So you cannot use this feature.",
+    "feature_blocked_by_org_warning": "Although you want to opt in to this feature, your organization has explicitly disabled it. So you cannot use this feature.",
+    "no_opt_in_features_available": "No opt-in features are currently available",
+    "ADD_NEW_STRINGS_ABOVE_THIS_LINE_TO_PREVENT_MERGE_CONFLICTS": "↑↑↑↑↑↑↑↑↑↑↑↑↑ Add your new strings above here ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 }

@@ -245,4 +245,155 @@ export const featureOptInRouter = router({
 
       return { success: true };
     }),
+
+  /**
+   * Get user's auto opt-in preference.
+   */
+  getUserAutoOptIn: authedProcedure.query(async ({ ctx }) => {
+    const autoOptIn = await featuresRepository.getUserAutoOptIn(ctx.user.id);
+    return { autoOptIn };
+  }),
+
+  /**
+   * Set user's auto opt-in preference.
+   */
+  setUserAutoOptIn: authedProcedure
+    .input(
+      z.object({
+        autoOptIn: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await featuresRepository.setUserAutoOptIn(ctx.user.id, input.autoOptIn);
+      return { success: true };
+    }),
+
+  /**
+   * Get team's auto opt-in preference (requires team admin).
+   */
+  getTeamAutoOptIn: authedProcedure
+    .input(
+      z.object({
+        teamId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const permissionCheckService = new PermissionCheckService();
+      const hasPermission = await permissionCheckService.checkPermission({
+        userId: ctx.user.id,
+        teamId: input.teamId,
+        permission: "team.read",
+        fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
+      });
+
+      if (!hasPermission) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to view team settings.",
+        });
+      }
+
+      const autoOptIn = await featuresRepository.getTeamAutoOptIn(input.teamId);
+      return { autoOptIn };
+    }),
+
+  /**
+   * Set team's auto opt-in preference (requires team admin).
+   */
+  setTeamAutoOptIn: authedProcedure
+    .input(
+      z.object({
+        teamId: z.number(),
+        autoOptIn: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const permissionCheckService = new PermissionCheckService();
+      const hasPermission = await permissionCheckService.checkPermission({
+        userId: ctx.user.id,
+        teamId: input.teamId,
+        permission: "team.update",
+        fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
+      });
+
+      if (!hasPermission) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to update team settings.",
+        });
+      }
+
+      await featuresRepository.setTeamAutoOptIn(input.teamId, input.autoOptIn);
+      return { success: true };
+    }),
+
+  /**
+   * Get organization's auto opt-in preference (requires org admin).
+   */
+  getOrganizationAutoOptIn: authedProcedure.query(async ({ ctx }) => {
+    const organizationId = ctx.user.organizationId;
+
+    if (!organizationId) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "You are not a member of any organization.",
+      });
+    }
+
+    const permissionCheckService = new PermissionCheckService();
+    const hasPermission = await permissionCheckService.checkPermission({
+      userId: ctx.user.id,
+      teamId: organizationId,
+      permission: "organization.read",
+      fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
+    });
+
+    if (!hasPermission) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have permission to view organization settings.",
+      });
+    }
+
+    const autoOptIn = await featuresRepository.getTeamAutoOptIn(organizationId);
+    return { autoOptIn };
+  }),
+
+  /**
+   * Set organization's auto opt-in preference (requires org admin).
+   */
+  setOrganizationAutoOptIn: authedProcedure
+    .input(
+      z.object({
+        autoOptIn: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const organizationId = ctx.user.organizationId;
+
+      if (!organizationId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are not a member of any organization.",
+        });
+      }
+
+      const permissionCheckService = new PermissionCheckService();
+      const hasPermission = await permissionCheckService.checkPermission({
+        userId: ctx.user.id,
+        teamId: organizationId,
+        permission: "organization.update",
+        fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
+      });
+
+      if (!hasPermission) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to update organization settings.",
+        });
+      }
+
+      await featuresRepository.setTeamAutoOptIn(organizationId, input.autoOptIn);
+      return { success: true };
+    }),
 });
