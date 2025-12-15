@@ -4,7 +4,7 @@ import logger from "@calcom/lib/logger";
 import type { IFeaturesRepository } from "@calcom/features/flags/features.repository.interface";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 
-import type { PIIFreeActor } from "../../../bookings/lib/types/actor";
+import type { Actor } from "../../../bookings/lib/types/actor";
 import type { BookingAuditTaskConsumerPayload } from "../types/bookingAuditTask";
 import { BookingAuditTaskConsumerSchema } from "../types/bookingAuditTask";
 import { BookingAuditActionServiceRegistry } from "./BookingAuditActionServiceRegistry";
@@ -201,7 +201,7 @@ export class BookingAuditTaskConsumer {
      * Resolves an Actor to an actor ID in the AuditActor table
      * Handles different actor types appropriately (upsert, lookup, or direct ID)
      */
-    private async resolveActorId(actor: PIIFreeActor): Promise<string> {
+    private async resolveActorId(actor: Actor): Promise<string> {
         switch (actor.identifiedBy) {
             case "id":
                 return actor.id;
@@ -212,6 +212,15 @@ export class BookingAuditTaskConsumer {
             case "attendee": {
                 const attendeeActor = await this.auditActorRepository.createIfNotExistsAttendeeActor({ attendeeId: actor.attendeeId });
                 return attendeeActor.id;
+            }
+            case "guest": {
+                // Guest actors are identified by email/name/phone - create or find existing
+                const guestActor = await this.auditActorRepository.createIfNotExistsGuestActor({
+                    email: actor.email ?? null,
+                    name: actor.name ?? null,
+                    phone: actor.phone ?? null,
+                });
+                return guestActor.id;
             }
         }
     }
@@ -285,7 +294,7 @@ export class BookingAuditTaskConsumer {
 
     async onBookingAction(params: {
         bookingUid: string;
-        actor: PIIFreeActor;
+        actor: Actor;
         action: BookingAuditAction;
         source: ActionSource;
         data: Record<string, unknown>;

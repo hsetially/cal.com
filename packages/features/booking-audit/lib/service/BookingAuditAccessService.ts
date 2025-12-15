@@ -1,6 +1,5 @@
 import type { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import type { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
-import { PermissionCheckService } from "@calcom/features/pbac/services/permission-check.service";
 import { MembershipRole } from "@calcom/prisma/enums";
 
 export enum BookingAuditErrorCode {
@@ -27,16 +26,18 @@ interface BookingAuditAccessServiceDeps {
  * BookingAuditAccessService - Service for checking access permissions to booking audit logs
  * Audit logs are admin-only for compliance and security purposes.
  * Regular users (including booking organizers and hosts) cannot view audit logs.
+ * 
+ * Access is granted if the user is an OWNER or ADMIN of:
+ * 1. The team that owns the event type (for team bookings)
+ * 2. The organization (for personal bookings within the org)
  */
 export class BookingAuditAccessService {
     private readonly bookingRepository: BookingRepository;
     private readonly membershipRepository: MembershipRepository;
-    private readonly permissionCheckService: PermissionCheckService;
 
     constructor(deps: BookingAuditAccessServiceDeps) {
         this.bookingRepository = deps.bookingRepository;
         this.membershipRepository = deps.membershipRepository;
-        this.permissionCheckService = new PermissionCheckService();
     }
 
     /**
@@ -56,14 +57,10 @@ export class BookingAuditAccessService {
         const bookingEventType = booking.eventType;
         const bookingEventTypeTeamId = bookingEventType?.teamId ?? bookingEventType?.parent?.teamId;
 
+        // Check team-level access for team bookings
         if (bookingEventTypeTeamId) {
-            const hasAccess = await this.permissionCheckService.checkPermission({
-                userId,
-                teamId: bookingEventTypeTeamId,
-                permission: "booking.readTeamAuditLogs",
-                fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
-            });
-            if (hasAccess) {
+            const hasTeamAccess = await this.hasAdminOrOwnerRole(userId, bookingEventTypeTeamId);
+            if (hasTeamAccess) {
                 return;
             }
         }
@@ -80,16 +77,23 @@ export class BookingAuditAccessService {
             throw new BookingAuditPermissionError(BookingAuditErrorCode.OWNER_NOT_IN_ORGANIZATION);
         }
 
-        const hasAccess = await this.permissionCheckService.checkPermission({
-            userId,
-            teamId: organizationId,
-            permission: "booking.readOrgAuditLogs",
-            fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
-        });
+        // Check org-level access for personal bookings
+        const hasOrgAccess = await this.hasAdminOrOwnerRole(userId, organizationId);
 
-        if (hasAccess) {
+        if (hasOrgAccess) {
             return;
         }
         throw new BookingAuditPermissionError(BookingAuditErrorCode.PERMISSION_DENIED);
+    }
+
+    /**
+     * Check if user has ADMIN or OWNER role in a team/organization
+     */
+    private async hasAdminOrOwnerRole(userId: number, teamId: number): Promise<boolean> {
+        const membership = await this.membershipRepository.findByUserIdAndTeamId({ userId, teamId });
+        if (!membership) {
+            return false;
+        }
+        return membership.role === MembershipRole.OWNER || membership.role === MembershipRole.ADMIN;
     }
 }
