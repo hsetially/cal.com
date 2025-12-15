@@ -577,9 +577,9 @@ export class FeaturesRepository implements IFeaturesRepository {
     try {
       const user = await this.prismaClient.user.findUnique({
         where: { id: userId },
-        select: { autoOptInExperimentalFeatures: true },
+        select: { autoOptInFeatures: true },
       });
-      return user?.autoOptInExperimentalFeatures ?? false;
+      return user?.autoOptInFeatures ?? false;
     } catch (err) {
       captureException(err);
       throw err;
@@ -595,7 +595,7 @@ export class FeaturesRepository implements IFeaturesRepository {
     try {
       await this.prismaClient.user.update({
         where: { id: userId },
-        data: { autoOptInExperimentalFeatures: autoOptIn },
+        data: { autoOptInFeatures: autoOptIn },
       });
     } catch (err) {
       captureException(err);
@@ -612,9 +612,9 @@ export class FeaturesRepository implements IFeaturesRepository {
     try {
       const team = await this.prismaClient.team.findUnique({
         where: { id: teamId },
-        select: { autoOptInExperimentalFeatures: true },
+        select: { autoOptInFeatures: true },
       });
-      return team?.autoOptInExperimentalFeatures ?? false;
+      return team?.autoOptInFeatures ?? false;
     } catch (err) {
       captureException(err);
       throw err;
@@ -630,7 +630,7 @@ export class FeaturesRepository implements IFeaturesRepository {
     try {
       await this.prismaClient.team.update({
         where: { id: teamId },
-        data: { autoOptInExperimentalFeatures: autoOptIn },
+        data: { autoOptInFeatures: autoOptIn },
       });
     } catch (err) {
       captureException(err);

@@ -480,7 +480,7 @@ model User {
   whitelistWorkflows             Boolean                       @default(false)
   calAiPhoneNumbers              CalAiPhoneNumber[]
   agents                         Agent[]
-  autoOptInExperimentalFeatures  Boolean                       @default(false)
+  autoOptInFeatures              Boolean                       @default(false)
 
   @@unique([email])
   @@unique([email, username])
@@ -595,8 +595,8 @@ model Team {
   agents                 Agent[]
   bookingReports         BookingReport[]
 
-  features                      TeamFeatures[]
-  autoOptInExperimentalFeatures Boolean        @default(false)
+  features          TeamFeatures[]
+  autoOptInFeatures Boolean        @default(false)
 
   /// @zod.import(["import { intervalLimitsType } from '../../zod-utils'"]).custom.use(intervalLimitsType)
   bookingLimits                Json?
